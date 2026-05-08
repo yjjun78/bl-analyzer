@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BL Analyzer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@300;400;500;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f0f;
+    --surface: #181818;
+    --surface2: #222222;
+    --border: #2e2e2e;
+    --border2: #3a3a3a;
+    --text: #e8e8e8;
+    --text2: #888;
+    --text3: #555;
+    --accent: #00e5a0;
+    --accent-dim: #00e5a015;
+    --danger: #ff4d4d;
+    --danger-dim: #ff4d4d15;
+    --warn: #ffb340;
+    --warn-dim: #ffb34015;
+    --ok: #00e5a0;
+    --ok-dim: #00e5a015;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans KR', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+  }
+
+  .logo span { color: var(--text2); }
+
+  .header-info {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+  }
+
+  main { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+
+  .upload-zone {
+    border: 1px dashed var(--border2);
+    border-radius: 12px;
+    padding: 3rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+    position: relative;
+  }
+
+  .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: var(--accent-dim); }
+  .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+  .upload-icon {
+    font-size: 40px;
+    margin-bottom: 1rem;
+    opacity: 0.4;
+  }
+
+  .upload-title {
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+  }
+
+  .upload-sub {
+    font-size: 13px;
+    color: var(--text2);
+    font-family: var(--mono);
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 1.5rem 0;
+  }
+
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--text3);
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-size: 28px;
+    font-weight: 600;
+    font-family: var(--mono);
+  }
+
+  .stat-value.total { color: var(--text); }
+  .stat-value.ok { color: var(--ok); }
+  .stat-value.ng { color: var(--danger); }
+  .stat-value.warn { color: var(--warn); }
+
+  .controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .filter-btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+  }
+
+  .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 500; }
+
+  .dl-btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+  }
+
+  .dl-btn:hover { background: var(--accent); color: #000; }
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead tr {
+    border-bottom: 1px solid var(--border2);
+    background: var(--surface2);
+  }
+
+  th {
+    padding: 10px 14px;
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    white-space: nowrap;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+
+  td {
+    padding: 10px 14px;
+    vertical-align: top;
+    line-height: 1.5;
+  }
+
+  .bl-no {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+    white-space: nowrap;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  .badge-ok { background: var(--ok-dim); color: var(--ok); border: 1px solid #00e5a030; }
+  .badge-ng { background: var(--danger-dim); color: var(--danger); border: 1px solid #ff4d4d30; }
+  .badge-miss { background: var(--warn-dim); color: var(--warn); border: 1px solid #ffb34030; }
+
+  .item-text { font-size: 12px; line-height: 1.6; color: var(--text); }
+  .item-muted { font-size: 12px; color: var(--text2); }
+
+  .missing-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 0;
+  }
+
+  .missing-chip {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: var(--danger-dim);
+    color: var(--danger);
+    border: 1px solid #ff4d4d20;
+  }
+
+  .empty {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text3);
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+
+  #app { display: none; }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .section-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .filename-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid #00e5a025;
+    padding: 3px 10px;
+    border-radius: 4px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">BL<span>·</span>ANALYZER</div>
+  <div class="header-info">품명 불일치 &amp; 누락 검출 시스템</div>
+</header>
+
+<main>
+  <div id="uploadSection">
+    <div class="upload-zone" id="dropzone">
+      <input type="file" id="fileInput" accept=".xls,.xlsx">
+      <div class="upload-icon">📂</div>
+      <div class="upload-title">B/L 리스트 파일 업로드</div>
+      <div class="upload-sub">Main Item · Description 컬럼 포함된 xls / xlsx</div>
+    </div>
+  </div>
+
+  <div id="app">
+    <div class="stats" id="statsRow"></div>
+
+    <div class="section-head">
+      <span class="section-label">분석 결과</span>
+      <div class="section-line"></div>
+      <span class="filename-tag" id="filenameTag"></span>
+    </div>
+
+    <div class="controls">
+      <div class="filters" id="filterBtns"></div>
+      <button class="dl-btn" id="dlBtn">↓ Excel 다운로드</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:160px;">B/L No.</th>
+            <th style="width:80px;">판정</th>
+            <th style="width:220px;">Main Item</th>
+            <th style="width:220px;">Description 품목</th>
+            <th>누락 품목</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script>
+  let allRows = [];
+  let currentFilter = 'all';
+  let currentFilename = '';
+
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+  function handleFile(file) {
+    currentFilename = file.name;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      analyze(data);
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function norm(s) { return String(s || '').replace(/\r/g, '').trim().toUpperCase(); }
+
+  function firstLine(s) { return norm(s).split('\n')[0].trim(); }
+
+  function tokenize(s) {
+    return s.split(/[,\/]+/).map(t => t.trim()).filter(t => t.length > 1);
+  }
+
+  function analyze(data) {
+    allRows = data.map(row => {
+      const bl = String(row['B/L No.'] || row['BL No'] || row['BLNO'] || '').trim();
+      const mainRaw = norm(row['Main Item'] || '');
+      const descLine = firstLine(row['Description'] || '');
+
+      const mainTokens = tokenize(mainRaw);
+      const descTokens = tokenize(descLine);
+
+      const missing = descTokens.filter(dt =>
+        !mainTokens.some(mt => mt.includes(dt) || dt.includes(mt))
+      );
+
+      let status = 'ok';
+      if (missing.length > 0) status = 'missing';
+      else if (mainRaw !== descLine) status = 'mismatch';
+
+      return { bl, mainRaw, descLine, mainTokens, descTokens, missing, status };
+    }).filter(r => r.bl);
+
+    currentFilter = 'all';
+    document.getElementById('uploadSection').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('filenameTag').textContent = currentFilename;
+    renderStats();
+    renderFilters();
+    renderTable();
+  }
+
+  function renderStats() {
+    const t = allRows.length;
+    const ok = allRows.filter(r => r.status === 'ok').length;
+    const ng = allRows.filter(r => r.status === 'mismatch').length;
+    const miss = allRows.filter(r => r.status === 'missing').length;
+    document.getElementById('statsRow').innerHTML = `
+      <div class="stat"><div class="stat-label">전체 B/L</div><div class="stat-value total">${t}</div></div>
+      <div class="stat"><div class="stat-label">일치</div><div class="stat-value ok">${ok}</div></div>
+      <div class="stat"><div class="stat-label">불일치</div><div class="stat-value ng">${ng}</div></div>
+      <div class="stat"><div class="stat-label">누락 품목</div><div class="stat-value warn">${miss}</div></div>
+    `;
+  }
+
+  function renderFilters() {
+    const counts = {
+      all: allRows.length,
+      ok: allRows.filter(r => r.status === 'ok').length,
+      mismatch: allRows.filter(r => r.status === 'mismatch').length,
+      missing: allRows.filter(r => r.status === 'missing').length,
+    };
+    const labels = { all: '전체', ok: '일치', mismatch: '불일치', missing: '누락' };
+    document.getElementById('filterBtns').innerHTML = Object.keys(counts).map(k => `
+      <button class="filter-btn ${currentFilter === k ? 'active' : ''}" onclick="setFilter('${k}')">
+        ${labels[k]} · ${counts[k]}
+      </button>
+    `).join('');
+  }
+
+  function setFilter(f) {
+    currentFilter = f;
+    renderFilters();
+    renderTable();
+  }
+
+  function renderTable() {
+    const rows = currentFilter === 'all' ? allRows : allRows.filter(r => r.status === currentFilter);
+    const tbody = document.getElementById('tableBody');
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="5"><div class="empty">해당 항목이 없습니다</div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows.map(r => {
+      const badge = r.status === 'ok'
+        ? `<span class="badge badge-ok">일치</span>`
+        : r.status === 'mismatch'
+        ? `<span class="badge badge-ng">불일치</span>`
+        : `<span class="badge badge-miss">누락</span>`;
+
+      const missingHtml = r.missing.length
+        ? `<div class="missing-list">${r.missing.map(m => `<span class="missing-chip">${m}</span>`).join('')}</div>`
+        : `<span style="color:var(--text3);font-family:var(--mono);font-size:11px;">—</span>`;
+
+      return `<tr>
+        <td><span class="bl-no">${r.bl}</span></td>
+        <td>${badge}</td>
+        <td><span class="item-text">${r.mainRaw || '<span class="item-muted">—</span>'}</span></td>
+        <td><span class="item-text">${r.descLine || '<span class="item-muted">—</span>'}</span></td>
+        <td>${missingHtml}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  document.getElementById('dlBtn').addEventListener('click', () => {
+    const data = allRows.map(r => ({
+      'B/L No.': r.bl,
+      '판정': r.status === 'ok' ? '일치' : r.status === 'mismatch' ? '불일치' : '누락',
+      'Main Item': r.mainRaw,
+      'Description 품목': r.descLine,
+      '누락 품목': r.missing.join(', ') || '—'
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '분석결과');
+    XLSX.writeFile(wb, 'BL_분석결과.xlsx');
+  });
+</script>
+</body>
+</html>
