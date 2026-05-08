@@ -383,8 +383,22 @@
 
   function firstLine(s) { return norm(s).split('\n')[0].trim(); }
 
+  const EXCLUDE_KEYWORDS = [
+    'COUNTRY OF ORIGIN', 'NET WEIGHT', 'PO NO', 'PO#', 'HS:',
+    'TERMS OF PRICE', 'SHIPPER LOAD', 'COUNT AND SEAL',
+    'CIF', 'CFR', 'FOB', 'CNF', 'C&F',
+    'INCHEON', 'BUSAN', 'SEOUL', 'ORIGIN',
+    'PACKED IN', 'PACKAGES', 'CARTONS', 'PALLETS',
+    'NET WT', 'GROSS WT', 'G.W', 'N.W',
+    'TOTAL', 'WEIGHT', 'KGS', 'MTS', 'MT',
+  ];
+
+  function isExcluded(token) {
+    return EXCLUDE_KEYWORDS.some(kw => token.includes(kw));
+  }
+
   function tokenize(s) {
-    return s.split(/[,\/]+/).map(t => t.trim()).filter(t => t.length > 1);
+    return s.split(/[,\/]+/).map(t => t.trim()).filter(t => t.length > 1 && !isExcluded(t));
   }
 
   function analyze(data) {
