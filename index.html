@@ -396,13 +396,19 @@
       const mainTokens = tokenize(mainRaw);
       const descTokens = tokenize(descLine);
 
+      // ① Description 품목 중 Main Item에 없는 것 → 누락
       const missing = descTokens.filter(dt =>
         !mainTokens.some(mt => mt.includes(dt) || dt.includes(mt))
       );
 
+      // ② Main Item이 Description 안에 포함되는지 체크
+      const mainIncludedInDesc = mainTokens.every(mt =>
+        descTokens.some(dt => dt.includes(mt) || mt.includes(dt)) || descLine.includes(mt)
+      );
+
       let status = 'ok';
       if (missing.length > 0) status = 'missing';
-      else if (mainRaw !== descLine) status = 'mismatch';
+      else if (!mainIncludedInDesc) status = 'mismatch';
 
       return { bl, mainRaw, descLine, mainTokens, descTokens, missing, status };
     }).filter(r => r.bl);
